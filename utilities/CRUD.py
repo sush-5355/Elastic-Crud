@@ -2,6 +2,46 @@ from utilities.elastic_config import *
 from utilities.date_conversion import convert_date
 
 
+def bulk_update(index_name, documents):
+    """
+    Perform bulk update operation on Elasticsearch index.
+
+    :param index_name: Name of the Elasticsearch index.
+    :param documents: List of dictionaries containing documents to be updated. Each dictionary must have '_id' field.
+    :return: List of dictionaries containing updated documents.
+    """
+    bulk_data = []
+
+    for doc in documents:
+        doc_id = doc.pop('_id', None)
+        if doc_id is None:
+            # Skip documents without IDs
+            continue
+
+        bulk_data.append({
+            "update": {
+                "_index": index_name,
+                "_id": doc_id,
+            }
+        })
+        bulk_data.append({
+            "doc": doc
+        })
+
+    if bulk_data:
+        # Execute bulk update
+        response = es.bulk(index=index_name, body=bulk_data, refresh=True)
+
+        # Parse response and return updated documents
+        updated_documents = []
+        for item in response['items']:
+            if 'update' in item:
+                updated_documents.append(item['update']['_source'])
+        return updated_documents
+    else:
+        return []  # No documents to update
+
+
 def delete_index(index_name):
     index_exists = es.indices.exists(index=index_name)
     if index_exists:
