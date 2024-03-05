@@ -2,44 +2,58 @@ from utilities.elastic_config import *
 from utilities.date_conversion import convert_date
 
 
-def bulk_update(index_name, documents):
+def bulk_update_all(index_name, update_fields):
     """
-    Perform bulk update operation on Elasticsearch index.
+    Perform bulk update operation on all documents in an Elasticsearch index.
 
     :param index_name: Name of the Elasticsearch index.
-    :param documents: List of dictionaries containing documents to be updated. Each dictionary must have '_id' field.
+    :param update_fields: Dictionary containing fields to be updated for all documents.
     :return: List of dictionaries containing updated documents.
     """
-    bulk_data = []
+    # Scroll through all documents in the index
+    scroll_size = 1000
+    updated_documents = []
 
-    for doc in documents:
-        doc_id = doc.pop('_id', None)
-        if doc_id is None:
-            # Skip documents without IDs
-            continue
+    search_body = {
+        "query": {
+            "match_all": {}
+        }
+    }
 
-        bulk_data.append({
-            "update": {
-                "_index": index_name,
-                "_id": doc_id,
-            }
-        })
-        bulk_data.append({
-            "doc": doc
-        })
+    # Initialize scroll
+    search_result = es.search(index=index_name, body=search_body, scroll='2m', size=scroll_size)
 
-    if bulk_data:
+    # Continue scrolling until all documents are retrieved
+    while len(search_result['hits']['hits']) > 0:
+        bulk_data = []
+
+        # Process each document
+        for hit in search_result['hits']['hits']:
+            doc_id = hit['_id']
+            bulk_data.append({
+                "update": {
+                    "_index": index_name,
+                    "_id": doc_id,
+                }
+            })
+            bulk_data.append({
+                "doc": update_fields
+            })
+
         # Execute bulk update
         response = es.bulk(index=index_name, body=bulk_data, refresh=True)
 
-        # Parse response and return updated documents
-        updated_documents = []
+        # Parse response and append updated documents to the result
         for item in response['items']:
             if 'update' in item:
                 updated_documents.append(item['update']['_source'])
-        return updated_documents
-    else:
-        return []  # No documents to update
+
+        # Continue scrolling
+        scroll_id = search_result['_scroll_id']
+        search_result = es.scroll(scroll_id=scroll_id, scroll='2m')
+
+    return updated_documents
+
 
 
 def delete_index(index_name):
