@@ -68,8 +68,6 @@ def update_by_id(index_name, id, doc):
     index_exists = es.indices.exists(index=index_name)
     if index_exists:
         try:
-            # doc.update({'updated_at':convert_date()})
-            # del doc['_id']
             return es.update(index=index_name, id=id, body={"doc": doc})
         except ModuleNotFoundError:
             return {'status': False, 'msg': f'id = {id} does not exists'}

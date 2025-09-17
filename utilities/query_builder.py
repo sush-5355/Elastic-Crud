@@ -23,7 +23,6 @@ def buildElsQuery(must=None, should=None, must_not=None, mustExpression=None, mu
                 query["query"]["bool"]["should"] = shouldQuery
     elif shouldExpression:
         shouldQuery = []
-        # shouldQuery = [{key: value} for key, value in shouldExpression.items()]
         if shouldExpression:
             if not isinstance(shouldExpression, list):
                 shouldExpression = [shouldExpression]
